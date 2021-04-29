@@ -6,11 +6,11 @@ import android.util.Log;
 
 public class CalculateRootsService extends IntentService {
 
-    @Override
-    public void sendBroadcast(Intent intent) {
-        super.sendBroadcast(intent);
-    }
-
+//    @Override
+//    public void sendBroadcast(Intent intent) {
+//        super.sendBroadcast(intent);
+//    }
+    private int checkTimeIter = 20;
 
     public CalculateRootsService() {
         super("CalculateRootsService");
@@ -21,10 +21,13 @@ public class CalculateRootsService extends IntentService {
      * @param timeStartMs time when service began
      * @return true if 20 have passed since service began
      */
-    private boolean timePassed(long timeStartMs)
+    private boolean howMuchTimePassed(long timeStartMs)
     {
         long currTimeMs = System.currentTimeMillis();
-        return CalculateRootsService.msToSec(currTimeMs - timeStartMs) >= 20;
+//        float howMuchTimePassed = (currTimeMs - timeStartMs)/1000F;
+        float timePassed = CalculateRootsService.howMuchTimePassed(timeStartMs, currTimeMs);
+        System.out.println("howMuchTimePassed " + timePassed);
+        return timePassed >= 20;
     }
 
     /**
@@ -41,7 +44,7 @@ public class CalculateRootsService extends IntentService {
         if (num == 2 || num == 3){
             return 0;
         }
-
+        int j = 1;
         for (int i = 5; i*i <= num; i += 6)
         {
             if (num % i == 0 || num % (i+2) == 0)
@@ -49,10 +52,11 @@ public class CalculateRootsService extends IntentService {
                 return 0;
             }
 
-            if (timePassed(timeStartMs)) // TODO: should check every iteration or every X iterations?
+            if (j % checkTimeIter == 0 && howMuchTimePassed(timeStartMs)) // TODO: should check every iteration or every X iterations?
             {
                 return -1;
             }
+            j++;
         }
         return 1;
     }
@@ -74,7 +78,7 @@ public class CalculateRootsService extends IntentService {
                 roots[1] = num / i;
                 return;
             }
-            if (timePassed(timeStartMs)) // TODO: should check every iteration or every X iterations?
+            if (i % checkTimeIter == 0 && howMuchTimePassed(timeStartMs)) // TODO: should check every iteration or every X iterations?
             {
                 roots[0] = -1;
                 roots[1] = System.currentTimeMillis();
@@ -91,6 +95,7 @@ public class CalculateRootsService extends IntentService {
     {
         return timeInMs*1000; //TODO check conversion
     }
+    private static float howMuchTimePassed(long start, long end) { return (end-start)/1000F;}
 
     @Override
     protected void onHandleIntent(Intent intent) {
@@ -122,36 +127,51 @@ public class CalculateRootsService extends IntentService {
        for input "829851628752296034247307144300617649465159", after 20 seconds give up
      */
         int isPrime = isPrimeNumber(numberToCalculateRootsFor, timeStartMs);
-        Intent outIntent = new Intent();
+        long timeWeStoppedMs = System.currentTimeMillis();
+        Intent outIntent = new Intent("calculate_roots_service_finished");
         switch (isPrime)
         {
             case 1: // prime
+                System.out.println("prime");
                 outIntent.setAction("found_roots");
                 outIntent.putExtra("original_number", numberToCalculateRootsFor);
                 outIntent.putExtra("root1", numberToCalculateRootsFor);
-                outIntent.putExtra("root2", 1);
+                outIntent.putExtra("root2", 1L);
                 break;
+
             case -1: // took more than 20 seconds to check if prime
-                long timeWeStoppedMs = System.currentTimeMillis();
+                System.out.println( "stopped_calculations");
+//                long timeWeStoppedMs = System.currentTimeMillis();
                 outIntent.setAction("stopped_calculations");
                 outIntent.putExtra("original_number", numberToCalculateRootsFor);
-                outIntent.putExtra("time_until_give_up_seconds", CalculateRootsService.msToSec(timeWeStoppedMs - timeStartMs));
+//                outIntent.putExtra("time_until_give_up_seconds", CalculateRootsService.msToSec(timeWeStoppedMs - timeStartMs));
+//                outIntent.putExtra("time_of_calculation", (timeWeStoppedMs - timeStartMs));
+                outIntent.putExtra("time_of_calculation", CalculateRootsService.howMuchTimePassed(timeStartMs, timeWeStoppedMs));
                 break;
+
             case 0: // non-prime
+                System.out.println("non prime");
                 long[] roots = new long[2];
                 calculateRoots(numberToCalculateRootsFor, roots, timeStartMs);
+                timeWeStoppedMs = System.currentTimeMillis();
                 if (roots[0] == -1) // took more than 20 seconds to find roots
                 {
+                    System.out.println("stopped_calculations");
                     outIntent.setAction("stopped_calculations");
                     outIntent.putExtra("original_number", numberToCalculateRootsFor);
-                    outIntent.putExtra("time_until_give_up_seconds", CalculateRootsService.msToSec(roots[1] - timeStartMs));
+//                    outIntent.putExtra("time_until_give_up_seconds", CalculateRootsService.msToSec(roots[1] - timeStartMs));
+//                    outIntent.putExtra("time_of_calculation", (timeWeStoppedMs - timeStartMs));
+                    outIntent.putExtra("time_of_calculation", CalculateRootsService.howMuchTimePassed(timeStartMs, timeWeStoppedMs));
                 }
                 else // found roots
                 {
+                    System.out.println("found roots");
                     outIntent.setAction("found_roots");
                     outIntent.putExtra("original_number", numberToCalculateRootsFor);
                     outIntent.putExtra("root1", roots[0]);
                     outIntent.putExtra("root2", roots[1]);
+//                    outIntent.putExtra("time_of_calculation", (timeWeStoppedMs - timeStartMs));
+                    outIntent.putExtra("time_of_calculation", CalculateRootsService.howMuchTimePassed(timeStartMs, timeWeStoppedMs));
                 }
                 break;
         }
