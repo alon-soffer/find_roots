@@ -22,8 +22,10 @@ public class MainActivity extends AppCompatActivity {
     private BroadcastReceiver broadcastReceiverForSuccess = null;
     // TODO: add any other fields to the activity as you want
     private BroadcastReceiver broadcastReceiverForFail = null;
+    private String inputText = "";
 
     private boolean calculating = false;
+    private boolean legalInput = false;
 
     private boolean onlyDigits(String str)
     {
@@ -71,13 +73,16 @@ public class MainActivity extends AppCompatActivity {
             public void afterTextChanged(Editable s) {
                 // text did change
                 String newText = editTextUserInput.getText().toString();
+                inputText = newText;
                 // todo: check conditions to decide if button should be enabled/disabled (see spec below)
                 if (onlyDigits(newText))
                 {
+                    legalInput = true;
                     buttonCalculateRoots.setEnabled(true);
                 }
                 else
                 {
+                    legalInput = false;
                     buttonCalculateRoots.setEnabled(false);
                     //TODO: out put to screen invalid input
                     System.out.println("invalid input "+ newText); //TODO delete
@@ -93,7 +98,7 @@ public class MainActivity extends AppCompatActivity {
             long userInputLong = Long.parseLong(userInputString);
             intentToOpenService.putExtra("number_for_service", userInputLong);
             startService(intentToOpenService);
-
+            calculating = true;
             // todo: set views states according to the spec (below)
             buttonCalculateRoots.setEnabled(false);
             editTextUserInput.setEnabled(false);
@@ -114,6 +119,7 @@ public class MainActivity extends AppCompatActivity {
            - when creating an intent to open the new-activity, pass the roots as extras to the new-activity intent
              (see for example how did we pass an extra when starting the calculation-service)
          */
+                calculating = false;
                 buttonCalculateRoots.setEnabled(true);
                 editTextUserInput.setEnabled(true);
                 progressBar.setVisibility(View.GONE);
@@ -150,6 +156,7 @@ public class MainActivity extends AppCompatActivity {
                 if (incomingIntent == null || !incomingIntent.getAction().equals("stopped_calculations")) return;
 
                 System.out.println("fail");
+                calculating = false;
                 buttonCalculateRoots.setEnabled(true);
                 editTextUserInput.setEnabled(true);
                 progressBar.setVisibility(View.GONE);
@@ -165,18 +172,44 @@ public class MainActivity extends AppCompatActivity {
         super.onDestroy();
         // todo: remove ALL broadcast receivers we registered earlier in onCreate().
         //  to remove a registered receiver, call method `this.unregisterReceiver(<receiver-to-remove>)`
+        this.unregisterReceiver(broadcastReceiverForFail);
+        this.unregisterReceiver(broadcastReceiverForSuccess);
     }
 
     @Override
     protected void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
         // TODO: put relevant data into bundle as you see fit
+        outState.putString("text_input", inputText);
+        outState.putBoolean("calculating", calculating);
+        outState.putBoolean("legal_input", legalInput);
     }
 
     @Override
     protected void onRestoreInstanceState(@NonNull Bundle savedInstanceState) {
         super.onRestoreInstanceState(savedInstanceState);
         // TODO: load data from bundle and set screen state (see spec below)
+        ProgressBar progressBar = findViewById(R.id.progressBar);
+        EditText editTextUserInput = findViewById(R.id.editTextInputNumber);
+        Button buttonCalculateRoots = findViewById(R.id.buttonCalculateRoots);
+
+        String lastInput = savedInstanceState.getString("text_input");
+        editTextUserInput.setText(lastInput);
+
+        legalInput = savedInstanceState.getBoolean("legal_input");
+        calculating = savedInstanceState.getBoolean("calculating");
+        if (calculating)
+        {
+            buttonCalculateRoots.setEnabled(false);
+            editTextUserInput.setEnabled(false);
+            progressBar.setVisibility(View.VISIBLE);
+        }
+        else
+        {
+            editTextUserInput.setEnabled(true);
+            buttonCalculateRoots.setEnabled(legalInput);
+            progressBar.setVisibility(View.GONE);
+        }
     }
 }
 
